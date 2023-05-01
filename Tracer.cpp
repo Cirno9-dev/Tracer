@@ -150,7 +150,7 @@ int main(int argc, char* argv[])
     cerr << "===============================================" << endl;
     cerr << "This application is instrumented by Tracer" << endl;
     cerr << "Trace File: " << traceFile << endl;
-    cerr << "Trace File: " << memoryTraceFile << endl;
+    cerr << "Memory Trace File: " << memoryTraceFile << endl;
     cerr << "===============================================" << endl;
 
     // Start the program, never returns
