@@ -62,19 +62,19 @@ VOID Image(IMG img, VOID* v)
 VOID RecordIns(VOID* address, string disassemble)
 {
     insCount += 1;
-    *trace << address << ": " << disassembleCode[address] << endl;
+    *trace << insCount << "\t" << address << ": " << disassembleCode[address] << endl;
 }
 
 VOID RecordMemRead(VOID* address, VOID* targetAddress, UINT32 size)
 {
     readCount += 1;
-    *memoryTrace << address << " R " << targetAddress << " " << size << endl;
+    *memoryTrace << insCount << "\t" << address << " R " << targetAddress << " " << size << endl;
 }
 
 VOID RecordMemWrite(VOID* address, VOID* targetAddress, UINT32 size)
 {
     writeCount += 1;
-    *memoryTrace << address << " W " << targetAddress << " " << size << endl;
+    *memoryTrace << insCount << "\t" << address << " W " << targetAddress << " " << size << endl;
 }
 
 VOID Trace(INS ins, VOID* v)

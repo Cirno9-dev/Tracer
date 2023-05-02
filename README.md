@@ -63,7 +63,7 @@ fileName: <FileName>
 loadedAddress: <Address>
 codeAddress: <Address>
 trace: 
-<Address>: <instruction>
+<ID> <Address>: <instruction>
 ```
 
 output/memoryTrace.log
@@ -73,5 +73,5 @@ fileName: <FileName>
 loadedAddress: <Address>
 codeAddress: <Address>
 memoryTrace: 
-<Address> R/W <TargetAddress> <Size>
+<ID> <Address> R/W <TargetAddress> <Size>
 ```
