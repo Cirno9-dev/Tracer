@@ -13,8 +13,13 @@ using std::map;
 /* ================================================================== */
 
 UINT64 insCount = 0;
+
 UINT64 readCount = 0;
 UINT64 writeCount = 0;
+
+BOOL flag = false;
+UINT64 mallocCount = 0;
+UINT64 freeCount = 0;
 
 string bin;
 VOID* loadedAddress;
@@ -25,6 +30,19 @@ string traceFile = "./output/trace.log";
 std::ostream* trace = new std::ofstream(traceFile.c_str(), std::ios_base::out);
 string memoryTraceFile = "./output/memoryTrace.log";
 std::ostream* memoryTrace = new std::ofstream(memoryTraceFile.c_str(), std::ios_base::out);
+string heapTraceFile = "./output/heapTrace.log";
+std::ostream* heapTrace = new std::ofstream(heapTraceFile.c_str(), std::ios_base::out);
+
+/* ===================================================================== */
+/* Names of malloc and free */
+/* ===================================================================== */
+#if defined(TARGET_MAC)
+#define MALLOC "_malloc"
+#define FREE "_free"
+#else
+#define MALLOC "malloc"
+#define FREE "free"
+#endif
 
 /* ===================================================================== */
 // Utilities
@@ -39,6 +57,38 @@ INT32 Usage()
 /* ===================================================================== */
 // Analysis routines
 /* ===================================================================== */
+
+VOID RecordArg(CHAR* name, ADDRINT size, const CONTEXT *ctxt)
+{
+    void *buf[2];
+    PIN_LockClient();
+    PIN_Backtrace(ctxt, buf, sizeof(buf) / sizeof(buf[0]));
+    PIN_UnlockClient();
+    // Focus on main program calls only
+    ADDRINT address = VoidStar2Addrint(buf[1]);
+    PIN_LockClient();
+    IMG img = IMG_FindByAddress(address);
+    PIN_UnlockClient();
+    if (IMG_Valid(img) && IMG_IsMainExecutable(img)) {
+        if (!strcmp(name, MALLOC)) {
+            flag = true;
+            mallocCount += 1;
+            *heapTrace << insCount << "\t" << name << "(" << size << ") -> ";
+        } else if (!strcmp(name, FREE)) {
+            freeCount += 1;
+            *heapTrace << insCount << "\t" << name << "(" << (VOID*)size << ")" << endl;
+        }
+    }
+}
+
+VOID RecordRet(ADDRINT ret)
+{
+    // The return value is recorded only when flag is true
+    if (flag) {
+        flag = false;
+        *heapTrace << (VOID*)ret << endl;
+    }
+}
 
 VOID Image(IMG img, VOID* v)
 {
@@ -56,6 +106,26 @@ VOID Image(IMG img, VOID* v)
         *memoryTrace << "loadedAddress: " << loadedAddress << endl;
         *memoryTrace << "codeAddress: " << codeAddress << endl;
         *memoryTrace << "memoryTrace: " << endl;
+
+        *heapTrace << "fileName: " << bin << endl;
+        *memoryTrace << "heapTrace: " << endl;
+    }
+
+    // malloc
+    RTN mallocRtn = RTN_FindByName(img, MALLOC);
+    if (RTN_Valid(mallocRtn)) {
+        RTN_Open(mallocRtn);
+        RTN_InsertCall(mallocRtn, IPOINT_BEFORE, (AFUNPTR)RecordArg, IARG_ADDRINT, MALLOC, IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_CONST_CONTEXT, IARG_END);
+        RTN_InsertCall(mallocRtn, IPOINT_AFTER, (AFUNPTR)RecordRet, IARG_FUNCRET_EXITPOINT_VALUE, IARG_END);
+        RTN_Close(mallocRtn);
+    }
+
+    // free()
+    RTN freeRtn = RTN_FindByName(img, FREE);
+    if (RTN_Valid(freeRtn)) {
+        RTN_Open(freeRtn);
+        RTN_InsertCall(freeRtn, IPOINT_BEFORE, (AFUNPTR)RecordArg, IARG_ADDRINT, FREE, IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_CONST_CONTEXT, IARG_END);
+        RTN_Close(freeRtn);
     }
 }
 
@@ -126,6 +196,8 @@ VOID Fini(INT32 code, VOID* v)
     cerr << "Number of instructions: " << insCount << endl;
     cerr << "Number of read memory instructions: " << readCount << endl;
     cerr << "Number of write memory instructions: " << writeCount << endl;
+    cerr << "Number of malloc: " << mallocCount << endl;
+    cerr << "Number of free: " << freeCount << endl;
     cerr << "===============================================" << endl;
 }
 
@@ -137,9 +209,10 @@ int main(int argc, char* argv[])
     {
         return Usage();
     }
+    PIN_InitSymbols();
 
     // Register function to be called when image load
-     IMG_AddInstrumentFunction(Image, 0);
+    IMG_AddInstrumentFunction(Image, 0);
 
     // Register function to be called to instrument Instrumention
     INS_AddInstrumentFunction(Trace, 0);
@@ -151,6 +224,7 @@ int main(int argc, char* argv[])
     cerr << "This application is instrumented by Tracer" << endl;
     cerr << "Trace File: " << traceFile << endl;
     cerr << "Memory Trace File: " << memoryTraceFile << endl;
+    cerr << "Heap Trace File: " << heapTraceFile << endl;
     cerr << "===============================================" << endl;
 
     // Start the program, never returns

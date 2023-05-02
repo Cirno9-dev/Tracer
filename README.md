@@ -52,6 +52,8 @@ Code address: 0x558e7979d000
 Number of instructions: 99
 Number of read memory instructions: 27
 Number of write memory instructions: 18
+Number of malloc: 0
+Number of free: 0
 ===============================================
 
 ```
@@ -74,4 +76,12 @@ loadedAddress: <Address>
 codeAddress: <Address>
 memoryTrace: 
 <ID> <Address> R/W <TargetAddress> <Size>
+```
+
+output/heapTrace.log
+
+```
+fileName: <FileName>
+heapTrace:
+<ID> <FunName>(<ARG>) -> <RETURN>
 ```

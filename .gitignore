@@ -1,5 +1,6 @@
 .vscode
 obj-*
-pin.log
+pintool.log
 output/memoryTrace.log
 output/trace.log
+output/heapTrace.log
