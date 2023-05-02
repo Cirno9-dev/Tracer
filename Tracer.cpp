@@ -61,7 +61,7 @@ INT32 Usage()
 // Analysis routines
 /* ===================================================================== */
 
-VOID RecordArg1(CHAR* name, ADDRINT size, const CONTEXT *ctxt)
+VOID RecordArg1(CHAR* name, ADDRINT arg, const CONTEXT *ctxt)
 {
     void *buf[2];
     PIN_LockClient();
@@ -73,18 +73,21 @@ VOID RecordArg1(CHAR* name, ADDRINT size, const CONTEXT *ctxt)
     IMG img = IMG_FindByAddress(address);
     PIN_UnlockClient();
     if (IMG_Valid(img) && IMG_IsMainExecutable(img)) {
-        if (!strcmp(name, MALLOC)) {
+        if (!strcmp(name, FREE)) {
+            freeCount += 1;
+            *heapTrace << insCount << "\t" << name << "(" << (VOID*)arg << ")" << endl;
+        } else if (!strcmp(name, MALLOC)) {
+            if (flag) {
+                *heapTrace << "0x0" << endl;
+            }
             flag = true;
             mallocCount += 1;
-            *heapTrace << insCount << "\t" << name << "(" << size << ") -> ";
-        } else if (!strcmp(name, FREE)) {
-            freeCount += 1;
-            *heapTrace << insCount << "\t" << name << "(" << (VOID*)size << ")" << endl;
+            *heapTrace << insCount << "\t" << name << "(" << arg << ") -> ";
         }
     }
 }
 
-VOID RecordArg2(CHAR* name, ADDRINT n, ADDRINT size, const CONTEXT *ctxt)
+VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2, const CONTEXT *ctxt)
 {
     void *buf[2];
     PIN_LockClient();
@@ -96,10 +99,13 @@ VOID RecordArg2(CHAR* name, ADDRINT n, ADDRINT size, const CONTEXT *ctxt)
     IMG img = IMG_FindByAddress(address);
     PIN_UnlockClient();
     if (IMG_Valid(img) && IMG_IsMainExecutable(img)) {
+        if (flag) {
+            *heapTrace << "0x0" << endl;
+        }
         if (!strcmp(name, CALLOC)) {
             flag = true;
             callocCount += 1;
-            *heapTrace << insCount << "\t" << name << "(" << n << ", " << size << ") -> ";
+            *heapTrace << insCount << "\t" << name << "(" << arg1 << ", " << arg2 << ") -> ";
         }
     }
 }
