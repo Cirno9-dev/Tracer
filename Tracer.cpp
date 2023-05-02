@@ -19,6 +19,7 @@ UINT64 writeCount = 0;
 
 BOOL flag = false;
 UINT64 mallocCount = 0;
+UINT64 callocCount = 0;
 UINT64 freeCount = 0;
 
 string bin;
@@ -41,6 +42,8 @@ std::ostream* heapTrace = new std::ofstream(heapTraceFile.c_str(), std::ios_base
 #define FREE "_free"
 #else
 #define MALLOC "malloc"
+#define CALLOC "calloc"
+#define REALLOC "realloc"
 #define FREE "free"
 #endif
 
@@ -58,7 +61,7 @@ INT32 Usage()
 // Analysis routines
 /* ===================================================================== */
 
-VOID RecordArg(CHAR* name, ADDRINT size, const CONTEXT *ctxt)
+VOID RecordArg1(CHAR* name, ADDRINT size, const CONTEXT *ctxt)
 {
     void *buf[2];
     PIN_LockClient();
@@ -77,6 +80,26 @@ VOID RecordArg(CHAR* name, ADDRINT size, const CONTEXT *ctxt)
         } else if (!strcmp(name, FREE)) {
             freeCount += 1;
             *heapTrace << insCount << "\t" << name << "(" << (VOID*)size << ")" << endl;
+        }
+    }
+}
+
+VOID RecordArg2(CHAR* name, ADDRINT n, ADDRINT size, const CONTEXT *ctxt)
+{
+    void *buf[2];
+    PIN_LockClient();
+    PIN_Backtrace(ctxt, buf, sizeof(buf) / sizeof(buf[0]));
+    PIN_UnlockClient();
+    // Focus on main program calls only
+    ADDRINT address = VoidStar2Addrint(buf[1]);
+    PIN_LockClient();
+    IMG img = IMG_FindByAddress(address);
+    PIN_UnlockClient();
+    if (IMG_Valid(img) && IMG_IsMainExecutable(img)) {
+        if (!strcmp(name, CALLOC)) {
+            flag = true;
+            callocCount += 1;
+            *heapTrace << insCount << "\t" << name << "(" << n << ", " << size << ") -> ";
         }
     }
 }
@@ -108,23 +131,32 @@ VOID Image(IMG img, VOID* v)
         *memoryTrace << "memoryTrace: " << endl;
 
         *heapTrace << "fileName: " << bin << endl;
-        *memoryTrace << "heapTrace: " << endl;
+        *heapTrace << "heapTrace: " << endl;
     }
 
     // malloc
     RTN mallocRtn = RTN_FindByName(img, MALLOC);
     if (RTN_Valid(mallocRtn)) {
         RTN_Open(mallocRtn);
-        RTN_InsertCall(mallocRtn, IPOINT_BEFORE, (AFUNPTR)RecordArg, IARG_ADDRINT, MALLOC, IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_CONST_CONTEXT, IARG_END);
+        RTN_InsertCall(mallocRtn, IPOINT_BEFORE, (AFUNPTR)RecordArg1, IARG_ADDRINT, MALLOC, IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_CONST_CONTEXT, IARG_END);
         RTN_InsertCall(mallocRtn, IPOINT_AFTER, (AFUNPTR)RecordRet, IARG_FUNCRET_EXITPOINT_VALUE, IARG_END);
         RTN_Close(mallocRtn);
+    }
+
+    // calloc
+    RTN callocRtn = RTN_FindByName(img, CALLOC);
+    if (RTN_Valid(callocRtn)) {
+        RTN_Open(callocRtn);
+        RTN_InsertCall(callocRtn, IPOINT_BEFORE, (AFUNPTR)RecordArg2, IARG_ADDRINT, CALLOC, IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_FUNCARG_ENTRYPOINT_VALUE, 1, IARG_CONST_CONTEXT, IARG_END);
+        RTN_InsertCall(callocRtn, IPOINT_AFTER, (AFUNPTR)RecordRet, IARG_FUNCRET_EXITPOINT_VALUE, IARG_END);
+        RTN_Close(callocRtn);
     }
 
     // free()
     RTN freeRtn = RTN_FindByName(img, FREE);
     if (RTN_Valid(freeRtn)) {
         RTN_Open(freeRtn);
-        RTN_InsertCall(freeRtn, IPOINT_BEFORE, (AFUNPTR)RecordArg, IARG_ADDRINT, FREE, IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_CONST_CONTEXT, IARG_END);
+        RTN_InsertCall(freeRtn, IPOINT_BEFORE, (AFUNPTR)RecordArg1, IARG_ADDRINT, FREE, IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_CONST_CONTEXT, IARG_END);
         RTN_Close(freeRtn);
     }
 }
@@ -197,6 +229,7 @@ VOID Fini(INT32 code, VOID* v)
     cerr << "Number of read memory instructions: " << readCount << endl;
     cerr << "Number of write memory instructions: " << writeCount << endl;
     cerr << "Number of malloc: " << mallocCount << endl;
+    cerr << "Number of calloc: " << callocCount << endl;
     cerr << "Number of free: " << freeCount << endl;
     cerr << "===============================================" << endl;
 }
