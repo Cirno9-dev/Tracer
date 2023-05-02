@@ -138,8 +138,20 @@ VOID Image(IMG img, VOID* v)
     RTN mallocRtn = RTN_FindByName(img, MALLOC);
     if (RTN_Valid(mallocRtn)) {
         RTN_Open(mallocRtn);
-        RTN_InsertCall(mallocRtn, IPOINT_BEFORE, (AFUNPTR)RecordArg1, IARG_ADDRINT, MALLOC, IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_CONST_CONTEXT, IARG_END);
-        RTN_InsertCall(mallocRtn, IPOINT_AFTER, (AFUNPTR)RecordRet, IARG_FUNCRET_EXITPOINT_VALUE, IARG_END);
+        RTN_InsertCall(
+            mallocRtn, IPOINT_BEFORE, 
+            (AFUNPTR)RecordArg1, 
+            IARG_ADDRINT, MALLOC, 
+            IARG_FUNCARG_ENTRYPOINT_VALUE, 0, 
+            IARG_CONST_CONTEXT, 
+            IARG_END
+        );
+        RTN_InsertCall(
+            mallocRtn, IPOINT_AFTER, 
+            (AFUNPTR)RecordRet, 
+            IARG_FUNCRET_EXITPOINT_VALUE, 
+            IARG_END
+        );
         RTN_Close(mallocRtn);
     }
 
@@ -147,8 +159,21 @@ VOID Image(IMG img, VOID* v)
     RTN callocRtn = RTN_FindByName(img, CALLOC);
     if (RTN_Valid(callocRtn)) {
         RTN_Open(callocRtn);
-        RTN_InsertCall(callocRtn, IPOINT_BEFORE, (AFUNPTR)RecordArg2, IARG_ADDRINT, CALLOC, IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_FUNCARG_ENTRYPOINT_VALUE, 1, IARG_CONST_CONTEXT, IARG_END);
-        RTN_InsertCall(callocRtn, IPOINT_AFTER, (AFUNPTR)RecordRet, IARG_FUNCRET_EXITPOINT_VALUE, IARG_END);
+        RTN_InsertCall(
+            callocRtn, IPOINT_BEFORE, 
+            (AFUNPTR)RecordArg2, 
+            IARG_ADDRINT, CALLOC, 
+            IARG_FUNCARG_ENTRYPOINT_VALUE, 0, 
+            IARG_FUNCARG_ENTRYPOINT_VALUE, 1, 
+            IARG_CONST_CONTEXT, 
+            IARG_END
+        );
+        RTN_InsertCall(
+            callocRtn, IPOINT_AFTER, 
+            (AFUNPTR)RecordRet, 
+            IARG_FUNCRET_EXITPOINT_VALUE, 
+            IARG_END
+        );
         RTN_Close(callocRtn);
     }
 
@@ -156,7 +181,14 @@ VOID Image(IMG img, VOID* v)
     RTN freeRtn = RTN_FindByName(img, FREE);
     if (RTN_Valid(freeRtn)) {
         RTN_Open(freeRtn);
-        RTN_InsertCall(freeRtn, IPOINT_BEFORE, (AFUNPTR)RecordArg1, IARG_ADDRINT, FREE, IARG_FUNCARG_ENTRYPOINT_VALUE, 0, IARG_CONST_CONTEXT, IARG_END);
+        RTN_InsertCall(
+            freeRtn, IPOINT_BEFORE, 
+            (AFUNPTR)RecordArg1, 
+            IARG_ADDRINT, FREE, 
+            IARG_FUNCARG_ENTRYPOINT_VALUE, 0, 
+            IARG_CONST_CONTEXT, 
+            IARG_END
+        );
         RTN_Close(freeRtn);
     }
 }
@@ -181,6 +213,30 @@ VOID RecordMemWrite(VOID* address, VOID* targetAddress, UINT32 size)
 
 VOID Trace(INS ins, VOID* v)
 {
+    // Stake insertion for all read and write instructions, not just for the main program.
+    // read memory
+    if (INS_IsMemoryRead(ins)) {
+        INS_InsertPredicatedCall(
+            ins, IPOINT_BEFORE, 
+            (AFUNPTR)RecordMemRead, 
+            IARG_INST_PTR, 
+            IARG_MEMORYREAD_EA, 
+            IARG_MEMORYREAD_SIZE,
+            IARG_END
+        );
+    }
+    // write memory
+    if (INS_IsMemoryWrite(ins)) {
+        INS_InsertPredicatedCall(
+            ins, IPOINT_BEFORE, 
+            (AFUNPTR)RecordMemWrite, 
+            IARG_INST_PTR, 
+            IARG_MEMORYWRITE_EA, 
+            IARG_MEMORYWRITE_SIZE,
+            IARG_END
+        );
+    }
+
     IMG img = IMG_FindByAddress(INS_Address(ins));
     if (!IMG_Valid(img) || !IMG_IsMainExecutable(img)) {
         return;
@@ -191,35 +247,11 @@ VOID Trace(INS ins, VOID* v)
     disassembleCode[address] = insDisassemble;
 
     INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RecordIns, IARG_INST_PTR,  IARG_END);
-
-    UINT32 memOperands = INS_MemoryOperandCount(ins);
-    // Iterate over each memory operand of the instruction.
-    for (UINT32 memOp = 0; memOp < memOperands; memOp++) {
-        // Read
-        if (INS_MemoryOperandIsRead(ins, memOp)) {
-            INS_InsertPredicatedCall(
-                ins, IPOINT_BEFORE, 
-                (AFUNPTR)RecordMemRead, 
-                IARG_INST_PTR, 
-                IARG_MEMORYOP_EA, memOp,
-                IARG_MEMORYREAD_SIZE,
-                IARG_END);
-        }
-        // Write
-        if (INS_MemoryOperandIsWritten(ins, memOp)) {
-            INS_InsertPredicatedCall(
-                ins, IPOINT_BEFORE, 
-                (AFUNPTR)RecordMemWrite, 
-                IARG_INST_PTR, 
-                IARG_MEMORYOP_EA, memOp,
-                IARG_MEMORYWRITE_SIZE,
-                IARG_END);
-        }
-    }
 }
 
 VOID Fini(INT32 code, VOID* v)
 {
+    cerr << endl;
     cerr << "===============================================" << endl;
     cerr << "Tracer analysis results: " << endl;
     cerr << "FileName: " << bin << endl;
