@@ -44,6 +44,7 @@ This application is instrumented by Tracer
 Trace File: ./output/trace.log
 Memory Trace File: ./output/memoryTrace.log
 ===============================================
+
 ===============================================
 Tracer analysis results: 
 FileName: /usr/bin/true
@@ -58,30 +59,34 @@ Number of free: 0
 
 ```
 
+output/info.log
+
+```
+fileName: /usr/bin/true
+loadedAddress: 0x7f249023d000
+codeAddress: 0x56193c649000
+insCount: 99
+readCount: 41522
+writeCount: 15450
+mallocCount: 0
+callocCount: 0
+freeCount: 0
+```
+
 output/trace.log
 
 ```
-fileName: <FileName>
-loadedAddress: <Address>
-codeAddress: <Address>
-trace: 
-<ID> <Address>: <instruction>
+ <ID> <Address>: <instruction>
 ```
 
 output/memoryTrace.log
 
 ```
-fileName: <FileName>
-loadedAddress: <Address>
-codeAddress: <Address>
-memoryTrace: 
 <ID> <Address> R/W <TargetAddress> <Size>
 ```
 
 output/heapTrace.log
 
 ```
-fileName: <FileName>
-heapTrace:
 <ID> <FunName>(<ARG>) -> <RETURN>
 ```

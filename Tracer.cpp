@@ -27,6 +27,8 @@ VOID* loadedAddress;
 VOID* codeAddress;
 map<VOID*, string> disassembleCode;
 
+string infoFile = "./output/info.log";
+std::ostream* info = new std::ofstream(infoFile.c_str(), std::ios_base::out);
 string traceFile = "./output/trace.log";
 std::ostream* trace = new std::ofstream(traceFile.c_str(), std::ios_base::out);
 string memoryTraceFile = "./output/memoryTrace.log";
@@ -126,18 +128,9 @@ VOID Image(IMG img, VOID* v)
         loadedAddress = (VOID*)IMG_StartAddress(img);
         codeAddress = (VOID*)IMG_LowAddress(img);
 
-        *trace << "fileName: " << bin << endl;
-        *trace << "loadedAddress: " << loadedAddress << endl;
-        *trace << "codeAddress: " << codeAddress << endl;
-        *trace << "trace: " << endl;
-
-        *memoryTrace << "fileName: " << bin << endl;
-        *memoryTrace << "loadedAddress: " << loadedAddress << endl;
-        *memoryTrace << "codeAddress: " << codeAddress << endl;
-        *memoryTrace << "memoryTrace: " << endl;
-
-        *heapTrace << "fileName: " << bin << endl;
-        *heapTrace << "heapTrace: " << endl;
+        *info << "fileName: " << bin << endl;
+        *info << "loadedAddress: " << loadedAddress << endl;
+        *info << "codeAddress: " << codeAddress << endl;
     }
 
     // malloc
@@ -270,6 +263,13 @@ VOID Fini(INT32 code, VOID* v)
     cerr << "Number of calloc: " << callocCount << endl;
     cerr << "Number of free: " << freeCount << endl;
     cerr << "===============================================" << endl;
+
+    *info << "insCount: " << insCount << endl;
+    *info << "readCount: " << readCount << endl;
+    *info << "writeCount: " << writeCount << endl;
+    *info << "mallocCount: " << mallocCount << endl;
+    *info << "callocCount: " << callocCount << endl;
+    *info << "freeCount: " << freeCount << endl;
 }
 
 int main(int argc, char* argv[])
