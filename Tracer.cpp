@@ -128,7 +128,7 @@ VOID Image(IMG img, VOID* v)
         loadedAddress = (VOID*)IMG_StartAddress(img);
         codeAddress = (VOID*)IMG_LowAddress(img);
 
-        *info << "fileName: " << bin << endl;
+        *info << "fileName: \'" << bin << "\'" << endl;
         *info << "loadedAddress: " << loadedAddress << endl;
         *info << "codeAddress: " << codeAddress << endl;
     }
@@ -293,6 +293,7 @@ int main(int argc, char* argv[])
 
     cerr << "===============================================" << endl;
     cerr << "This application is instrumented by Tracer" << endl;
+    cerr << "Info File: " << infoFile << endl;
     cerr << "Trace File: " << traceFile << endl;
     cerr << "Memory Trace File: " << memoryTraceFile << endl;
     cerr << "Heap Trace File: " << heapTraceFile << endl;
