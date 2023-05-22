@@ -14,17 +14,11 @@ git clone https://github.com/Cirno9-dev/Tracer.git
 
 **build & run**
 
-change makefile:
-
-```makefile
-PIN_ROOT = <YOUR PIN ROOT>
-```
-
 32 Architecture:
 
 ```bash
 cd Tracer
-make Target=ia32
+PIN_ROOT=<YOUR PIN ROOT> make Target=ia32
 pin -t ./obj-ia32/Tracer.so -- /bin/true
 ```
 
@@ -32,7 +26,7 @@ pin -t ./obj-ia32/Tracer.so -- /bin/true
 
 ```bash
 cd Tracer
-make Target=intel64
+PIN_ROOT=<YOUR PIN ROOT> make Target=intel64
 pin -t ./obj-intel64/Tracer.so -- /bin/true
 ```
 
