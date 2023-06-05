@@ -59,22 +59,29 @@ INT32 Usage()
     return -1;
 }
 
+BOOL CheckMainCall(const CONTEXT *ctxt)
+{
+    void *buf[2];
+    PIN_LockClient();
+    PIN_Backtrace(ctxt, buf, sizeof(buf) / sizeof(buf[0]));
+    // Focus on main program calls only
+    ADDRINT address = VoidStar2Addrint(buf[1]);
+    IMG img = IMG_FindByAddress(address);
+    PIN_UnlockClient();
+    if (IMG_Valid(img) && IMG_IsMainExecutable(img)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 /* ===================================================================== */
 // Analysis routines
 /* ===================================================================== */
 
 VOID RecordArg1(CHAR* name, ADDRINT arg, const CONTEXT *ctxt)
 {
-    void *buf[2];
-    PIN_LockClient();
-    PIN_Backtrace(ctxt, buf, sizeof(buf) / sizeof(buf[0]));
-    PIN_UnlockClient();
-    // Focus on main program calls only
-    ADDRINT address = VoidStar2Addrint(buf[1]);
-    PIN_LockClient();
-    IMG img = IMG_FindByAddress(address);
-    PIN_UnlockClient();
-    if (IMG_Valid(img) && IMG_IsMainExecutable(img)) {
+    if (CheckMainCall(ctxt)) {
         if (!strcmp(name, FREE)) {
             freeCount += 1;
             *heapTrace << insCount << "\t" << name << "(" << (VOID*)arg << ")" << endl;
@@ -91,16 +98,7 @@ VOID RecordArg1(CHAR* name, ADDRINT arg, const CONTEXT *ctxt)
 
 VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2, const CONTEXT *ctxt)
 {
-    void *buf[2];
-    PIN_LockClient();
-    PIN_Backtrace(ctxt, buf, sizeof(buf) / sizeof(buf[0]));
-    PIN_UnlockClient();
-    // Focus on main program calls only
-    ADDRINT address = VoidStar2Addrint(buf[1]);
-    PIN_LockClient();
-    IMG img = IMG_FindByAddress(address);
-    PIN_UnlockClient();
-    if (IMG_Valid(img) && IMG_IsMainExecutable(img)) {
+    if (CheckMainCall(ctxt)) {
         if (flag) {
             *heapTrace << "0x0" << endl;
         }
@@ -192,22 +190,26 @@ VOID Image(IMG img, VOID* v)
     }
 }
 
-VOID RecordIns(VOID* address, string disassemble)
+VOID RecordIns(VOID* address)
 {
     insCount += 1;
     *trace << insCount << "\t" << address << ": " << disassembleCode[address] << endl;
 }
 
-VOID RecordMemRead(VOID* address, VOID* targetAddress, UINT32 size)
+VOID RecordMemRead(VOID* address, VOID* targetAddress, UINT32 size, const CONTEXT *ctxt)
 {
-    readCount += 1;
-    *memoryTrace << insCount << "\t" << address << " R " << targetAddress << " " << size << endl;
+    // if (CheckMainCall(ctxt)) {
+        readCount += 1;
+        *memoryTrace << insCount << "\t" << address << " R " << targetAddress << " " << size << endl;
+    // }
 }
 
-VOID RecordMemWrite(VOID* address, VOID* targetAddress, UINT32 size)
+VOID RecordMemWrite(VOID* address, VOID* targetAddress, UINT32 size, const CONTEXT *ctxt)
 {
-    writeCount += 1;
-    *memoryTrace << insCount << "\t" << address << " W " << targetAddress << " " << size << endl;
+    // if (CheckMainCall(ctxt)) {
+        writeCount += 1;
+        *memoryTrace << insCount << "\t" << address << " W " << targetAddress << " " << size << endl;
+    // }
 }
 
 VOID Trace(INS ins, VOID* v)
@@ -221,6 +223,7 @@ VOID Trace(INS ins, VOID* v)
             IARG_INST_PTR, 
             IARG_MEMORYREAD_EA, 
             IARG_MEMORYREAD_SIZE,
+            IARG_CONST_CONTEXT,
             IARG_END
         );
     }
@@ -232,6 +235,7 @@ VOID Trace(INS ins, VOID* v)
             IARG_INST_PTR, 
             IARG_MEMORYWRITE_EA, 
             IARG_MEMORYWRITE_SIZE,
+            IARG_CONST_CONTEXT,
             IARG_END
         );
     }
