@@ -18,6 +18,7 @@ UINT64 readCount = 0;
 UINT64 writeCount = 0;
 
 BOOL flag = false;
+BOOL freeFlag = false;
 UINT64 mallocCount = 0;
 UINT64 callocCount = 0;
 UINT64 freeCount = 0;
@@ -82,14 +83,16 @@ BOOL CheckMainCall(const CONTEXT *ctxt)
 VOID RecordArg1(CHAR* name, ADDRINT arg, const CONTEXT *ctxt)
 {
     if (CheckMainCall(ctxt)) {
+        if (flag && !freeFlag) {
+            *heapTrace << "0x0" << endl;
+        }
         if (!strcmp(name, FREE)) {
+            freeFlag = true;
             freeCount += 1;
             *heapTrace << insCount << "\t" << name << "(" << (VOID*)arg << ")" << endl;
         } else if (!strcmp(name, MALLOC)) {
-            if (flag) {
-                *heapTrace << "0x0" << endl;
-            }
             flag = true;
+            freeFlag = false;
             mallocCount += 1;
             *heapTrace << insCount << "\t" << name << "(" << arg << ") -> ";
         }
@@ -99,11 +102,12 @@ VOID RecordArg1(CHAR* name, ADDRINT arg, const CONTEXT *ctxt)
 VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2, const CONTEXT *ctxt)
 {
     if (CheckMainCall(ctxt)) {
-        if (flag) {
+        if (flag && !freeFlag) {
             *heapTrace << "0x0" << endl;
         }
         if (!strcmp(name, CALLOC)) {
             flag = true;
+            freeFlag = false;
             callocCount += 1;
             *heapTrace << insCount << "\t" << name << "(" << arg1 << ", " << arg2 << ") -> ";
         }
@@ -196,51 +200,23 @@ VOID RecordIns(VOID* address)
     *trace << insCount << "\t" << address << ": " << disassembleCode[address] << endl;
 }
 
-VOID RecordMemRead(VOID* address, VOID* targetAddress, UINT32 size, const CONTEXT *ctxt)
+VOID RecordMemRead(VOID* address, VOID* targetAddress, UINT32 size)
 {
-    // if (CheckMainCall(ctxt)) {
-        readCount += 1;
-        *memoryTrace << insCount << "\t" << address << " R " << targetAddress << " " << size << endl;
-    // }
+    readCount += 1;
+    *memoryTrace << insCount << "\t" << address << " R " << targetAddress << " " << size << endl;
 }
 
-VOID RecordMemWrite(VOID* address, VOID* targetAddress, UINT32 size, const CONTEXT *ctxt)
+VOID RecordMemWrite(VOID* address, VOID* targetAddress, UINT32 size)
 {
-    // if (CheckMainCall(ctxt)) {
-        writeCount += 1;
-        *memoryTrace << insCount << "\t" << address << " W " << targetAddress << " " << size << endl;
-    // }
+    writeCount += 1;
+    *memoryTrace << insCount << "\t" << address << " W " << targetAddress << " " << size << endl;
 }
 
 VOID Trace(INS ins, VOID* v)
 {
-    // Stake insertion for all read and write instructions, not just for the main program.
-    // read memory
-    if (INS_IsMemoryRead(ins)) {
-        INS_InsertPredicatedCall(
-            ins, IPOINT_BEFORE, 
-            (AFUNPTR)RecordMemRead, 
-            IARG_INST_PTR, 
-            IARG_MEMORYREAD_EA, 
-            IARG_MEMORYREAD_SIZE,
-            IARG_CONST_CONTEXT,
-            IARG_END
-        );
-    }
-    // write memory
-    if (INS_IsMemoryWrite(ins)) {
-        INS_InsertPredicatedCall(
-            ins, IPOINT_BEFORE, 
-            (AFUNPTR)RecordMemWrite, 
-            IARG_INST_PTR, 
-            IARG_MEMORYWRITE_EA, 
-            IARG_MEMORYWRITE_SIZE,
-            IARG_CONST_CONTEXT,
-            IARG_END
-        );
-    }
-
+    PIN_LockClient();
     IMG img = IMG_FindByAddress(INS_Address(ins));
+    PIN_UnlockClient();
     if (!IMG_Valid(img) || !IMG_IsMainExecutable(img)) {
         return;
     }
@@ -250,6 +226,34 @@ VOID Trace(INS ins, VOID* v)
     disassembleCode[address] = insDisassemble;
 
     INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RecordIns, IARG_INST_PTR,  IARG_END);
+
+    // Stake insertion for read and write instructions, just for the main program.
+    UINT32 memOperands = INS_MemoryOperandCount(ins);
+    // Iterate over each memory operand of the instruction.
+    for (UINT32 memOp = 0; memOp < memOperands; memOp++) {
+        // Read
+        if (INS_MemoryOperandIsRead(ins, memOp)) {
+            INS_InsertPredicatedCall(
+                ins, IPOINT_BEFORE, 
+                (AFUNPTR)RecordMemRead, 
+                IARG_INST_PTR, 
+                IARG_MEMORYOP_EA, memOp,
+                IARG_MEMORYREAD_SIZE,
+                IARG_END
+            );
+        }
+        // Write
+        if (INS_MemoryOperandIsWritten(ins, memOp)) {
+            INS_InsertPredicatedCall(
+                ins, IPOINT_BEFORE, 
+                (AFUNPTR)RecordMemWrite, 
+                IARG_INST_PTR, 
+                IARG_MEMORYOP_EA, memOp,
+                IARG_MEMORYWRITE_SIZE,
+                IARG_END
+            );
+        }
+    }
 }
 
 VOID Fini(INT32 code, VOID* v)
