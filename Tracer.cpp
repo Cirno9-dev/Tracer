@@ -103,12 +103,12 @@ VOID RecordArg1(CHAR* name, ADDRINT arg, const CONTEXT *ctxt)
         if (!strcmp(name, FREE)) {
             freeFlag = true;
             freeCount += 1;
-            *heapTrace << insCount << "\t" << name << "(" << (VOID*)arg << ")" << endl;
+            *heapTrace << insCount << "\t" << name << " [" << (VOID*)arg << "] 0x0" << endl;
         } else if (!strcmp(name, MALLOC)) {
             flag = true;
             freeFlag = false;
             mallocCount += 1;
-            *heapTrace << insCount << "\t" << name << "(" << arg << ") -> ";
+            *heapTrace << insCount << "\t" << name << " [" << arg << "] ";
         }
     //}
 }
@@ -123,7 +123,7 @@ VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2, const CONTEXT *ctxt)
             flag = true;
             freeFlag = false;
             callocCount += 1;
-            *heapTrace << insCount << "\t" << name << "(" << arg1 << ", " << arg2 << ") -> ";
+            *heapTrace << insCount << "\t" << name << " [" << arg1 << "," << arg2 << "] ";
         }
     //}
 }

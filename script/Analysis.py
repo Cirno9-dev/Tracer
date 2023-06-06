@@ -34,6 +34,11 @@ def test(infoFile, traceFile, memoryFile, heapFile):
     memoryTrace = MemoryTrace(memoryFile)
     for memOp in memoryTrace[:10]:
         print(memOp)
+        
+    print("\nHeapTrace:")
+    heapTrace = HeapTracer(heapFile)
+    for heapOp in heapTrace[:10]:
+        print(heapOp)
 
 if __name__ == "__main__":
     main()
