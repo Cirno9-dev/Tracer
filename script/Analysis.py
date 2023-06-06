@@ -1,13 +1,26 @@
 from lib import *
-
-infoFile = "../output/info.log"
-traceFile = "../output/trace.log"
-memoryFile = "../output/memoryTrace.log"
-heapFile = "../output/heapTrace.log"
+import argparse
+from pathlib import Path
 
 def main() -> None:
-    print("Analysis script for Tarcer output!")
+    parser = argparse.ArgumentParser(description="Analysis script for Tarcer output!")
+    parser.add_argument("-d", "--dir", dest="dir", default="./output", type=str, help="output dir. Default: ./output")
+    args = parser.parse_args()
     
+    outputDir = Path(args.dir)
+    if not outputDir.exists():
+        print("[-] output dir does not exist!\n")
+        parser.print_help()
+        exit(0)
+    
+    infoFile = outputDir.joinpath("info.log")
+    traceFile = outputDir.joinpath("trace.log")
+    memoryFile = outputDir.joinpath("memoryTrace.log")
+    heapFile = outputDir.joinpath("heapTrace.log")
+    
+    test(infoFile, traceFile, memoryFile, heapFile)
+        
+def test(infoFile, traceFile, memoryFile, heapFile):
     print("\nInfo:")
     info = Info(infoFile)
     print(info)
