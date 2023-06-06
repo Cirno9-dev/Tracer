@@ -82,7 +82,7 @@ BOOL CheckMainCall(const CONTEXT *ctxt)
 
 VOID RecordArg1(CHAR* name, ADDRINT arg, const CONTEXT *ctxt)
 {
-    if (CheckMainCall(ctxt)) {
+    //if (CheckMainCall(ctxt)) {
         if (flag && !freeFlag) {
             *heapTrace << "0x0" << endl;
         }
@@ -96,12 +96,12 @@ VOID RecordArg1(CHAR* name, ADDRINT arg, const CONTEXT *ctxt)
             mallocCount += 1;
             *heapTrace << insCount << "\t" << name << "(" << arg << ") -> ";
         }
-    }
+    //}
 }
 
 VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2, const CONTEXT *ctxt)
 {
-    if (CheckMainCall(ctxt)) {
+    //if (CheckMainCall(ctxt)) {
         if (flag && !freeFlag) {
             *heapTrace << "0x0" << endl;
         }
@@ -111,7 +111,7 @@ VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2, const CONTEXT *ctxt)
             callocCount += 1;
             *heapTrace << insCount << "\t" << name << "(" << arg1 << ", " << arg2 << ") -> ";
         }
-    }
+    //}
 }
 
 VOID RecordRet(ADDRINT ret)
@@ -214,20 +214,7 @@ VOID RecordMemWrite(VOID* address, VOID* targetAddress, UINT32 size)
 
 VOID Trace(INS ins, VOID* v)
 {
-    PIN_LockClient();
-    IMG img = IMG_FindByAddress(INS_Address(ins));
-    PIN_UnlockClient();
-    if (!IMG_Valid(img) || !IMG_IsMainExecutable(img)) {
-        return;
-    }
-
-    VOID* address = (VOID*) INS_Address(ins);
-    string insDisassemble = INS_Disassemble(ins);
-    disassembleCode[address] = insDisassemble;
-
-    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RecordIns, IARG_INST_PTR,  IARG_END);
-
-    // Stake insertion for read and write instructions, just for the main program.
+    // Stake insertion for read and write instructions, not just for the main program.
     UINT32 memOperands = INS_MemoryOperandCount(ins);
     // Iterate over each memory operand of the instruction.
     for (UINT32 memOp = 0; memOp < memOperands; memOp++) {
@@ -254,6 +241,19 @@ VOID Trace(INS ins, VOID* v)
             );
         }
     }
+
+    PIN_LockClient();
+    IMG img = IMG_FindByAddress(INS_Address(ins));
+    PIN_UnlockClient();
+    if (!IMG_Valid(img) || !IMG_IsMainExecutable(img)) {
+        return;
+    }
+
+    VOID* address = (VOID*) INS_Address(ins);
+    string insDisassemble = INS_Disassemble(ins);
+    disassembleCode[address] = insDisassemble;
+
+    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RecordIns, IARG_INST_PTR,  IARG_END);
 }
 
 VOID Fini(INT32 code, VOID* v)
