@@ -2,3 +2,4 @@
 obj-*
 **/*.log
 **/__pycache__
+output

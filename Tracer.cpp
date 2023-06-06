@@ -2,6 +2,8 @@
 #include <iostream>
 #include <fstream>
 #include <map>
+#include <unistd.h>
+#include <sys/stat.h>
 
 using std::cerr;
 using std::endl;
@@ -28,14 +30,26 @@ VOID* loadedAddress;
 VOID* codeAddress;
 map<VOID*, string> disassembleCode;
 
+string outputDir = "./output";
 string infoFile = "./output/info.log";
-std::ostream* info = new std::ofstream(infoFile.c_str(), std::ios_base::out);
+std::ostream* info = nullptr;
 string traceFile = "./output/trace.log";
-std::ostream* trace = new std::ofstream(traceFile.c_str(), std::ios_base::out);
+std::ostream* trace = nullptr;
 string memoryTraceFile = "./output/memoryTrace.log";
-std::ostream* memoryTrace = new std::ofstream(memoryTraceFile.c_str(), std::ios_base::out);
+std::ostream* memoryTrace = nullptr;
 string heapTraceFile = "./output/heapTrace.log";
-std::ostream* heapTrace = new std::ofstream(heapTraceFile.c_str(), std::ios_base::out);
+std::ostream* heapTrace = nullptr;
+
+VOID init()
+{
+    if (access(outputDir.c_str(), 0) == -1) {
+        mkdir(outputDir.c_str(), S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH);
+    }
+    info = new std::ofstream(infoFile.c_str(), std::ios_base::out);
+    trace = new std::ofstream(traceFile.c_str(), std::ios_base::out);
+    memoryTrace = new std::ofstream(memoryTraceFile.c_str(), std::ios_base::out);
+    heapTrace = new std::ofstream(heapTraceFile.c_str(), std::ios_base::out);
+}
 
 /* ===================================================================== */
 /* Names of malloc and free */
@@ -282,6 +296,7 @@ VOID Fini(INT32 code, VOID* v)
 
 int main(int argc, char* argv[])
 {
+    init();
     // Initialize PIN library. Print help message if -h(elp) is specified
     // in the command line or the command line is invalid
     if (PIN_Init(argc, argv))
