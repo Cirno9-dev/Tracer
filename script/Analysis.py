@@ -113,7 +113,7 @@ def main() -> None:
 
     minMemoryTrace = processMemoryTrace(memoryTrace, heapTrace)
     allTrace = heapTrace + minMemoryTrace
-    allTrace.sort(key=lambda v: v["id"])
+    allTrace.sort(key=lambda v: v["opId"])
     
     checkVulnerability(allTrace)
     

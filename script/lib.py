@@ -64,9 +64,10 @@ class Trace(list):
         return trace.strip()
     
 class MemoryOp(dict):
-    def __init__(self, id: int, address: int, op: str, targetAddress: int, size: int) -> None:
+    def __init__(self, id: int, opId: int, address: int, op: str, targetAddress: int, size: int) -> None:
         super().__init__({
             "id": id,
+            "opId": opId,
             "address": address,
             "op": op,
             "targetAddress": targetAddress,
@@ -78,12 +79,13 @@ class MemoryOp(dict):
     
     def __repr__(self) -> str:
         id = self["id"]
+        opId = self["opId"]
         address = self["address"]
         op = self["op"]
         targetAddress = self["targetAddress"]
         size = self["size"]
         
-        return f"{id}\t{hex(address)} {op} {hex(targetAddress)} {size}"
+        return f"{id}\t{opId}\t{hex(address)} {op} {hex(targetAddress)} {size}"
     
 class MemoryTrace(list):
     def __init__(self, filename: str) -> None:
@@ -92,18 +94,21 @@ class MemoryTrace(list):
 
     def _parseFromFile(self, filename: str) -> None:
         with open(filename) as f:
-            line = f.readline()
-            while line:
+            while True:
+                line = f.readline()
+                if not line:
+                    break
                 line = line.strip()
                 
                 id = int(line.split("\t")[0])
-                line = line.split("\t")[1].split(" ")
+                if id == 0:
+                    continue
+                opId = int(line.split("\t")[1])
+                line = line.split("\t")[2].split(" ")
                 line[0] = int(line[0], 16)
                 line[2] = int(line[2], 16)
                 line[3] = int(line[3])
-                self.append(MemoryOp(id, *line))
-                
-                line = f.readline()
+                self.append(MemoryOp(id, opId, *line))
 
     def __str__(self) -> str:
         return self.__repr__()
@@ -115,9 +120,10 @@ class MemoryTrace(list):
         return memoryTrace.strip()
     
 class HeapOp(dict):
-    def __init__(self, id: int, func: str, args: list, retAddress: int) -> None:
+    def __init__(self, id: int, opId: int, func: str, args: list, retAddress: int) -> None:
         super().__init__({
             "id": id,
+            "opId": opId,
             "func": func,
             "args": args,
             "retAddress": retAddress
@@ -128,13 +134,14 @@ class HeapOp(dict):
     
     def __repr__(self) -> str:
         id = self["id"]
+        opId = self["opId"]
         func = self["func"]
         args = self["args"]
         retAddress = self["retAddress"]
         
         argsStr = ", ".join([hex(arg) for arg in args])
         
-        return f"{id}\t{hex(retAddress)} = {func}({argsStr})"
+        return f"{id}\t{opId}\t{hex(retAddress)} = {func}({argsStr})"
     
 class HeapTrace(list):
     def __init__(self, filename: str) -> None:
@@ -150,7 +157,11 @@ class HeapTrace(list):
                 line = line.strip()
                 
                 id = int(line.split("\t")[0])
-                line = line.split("\t")[1].split(" ")
+                # if id == 0 pass
+                if id == 0:
+                    continue
+                opId = int(line.split("\t")[1])
+                line = line.split("\t")[2].split(" ")
                 line[1] = eval(line[1])
                 line[2] = int(line[2], 16)
                 # if free(0) or 0x0 = malloc() pass
@@ -159,7 +170,7 @@ class HeapTrace(list):
                         continue
                 elif line[2] == 0:
                     continue
-                self.append(HeapOp(id, *line))
+                self.append(HeapOp(id, opId, *line))
                 
     def __str__(self) -> str:
         return self.__repr__()

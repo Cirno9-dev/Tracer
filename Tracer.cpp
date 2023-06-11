@@ -15,6 +15,7 @@ using std::map;
 /* ================================================================== */
 
 UINT64 insCount = 0;
+UINT64 count = 0;
 
 UINT64 readCount = 0;
 UINT64 writeCount = 0;
@@ -103,12 +104,14 @@ VOID RecordArg1(CHAR* name, ADDRINT arg, const CONTEXT *ctxt)
         if (!strcmp(name, FREE)) {
             freeFlag = true;
             freeCount += 1;
-            *heapTrace << insCount << "\t" << name << " [" << (VOID*)arg << "] 0x0" << endl;
+            count ++;
+            *heapTrace << insCount << "\t" << count << "\t" << name << " [" << (VOID*)arg << "] 0x0" << endl;
         } else if (!strcmp(name, MALLOC)) {
             flag = true;
             freeFlag = false;
             mallocCount += 1;
-            *heapTrace << insCount << "\t" << name << " [" << arg << "] ";
+            count ++;
+            *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg << "] ";
         }
     //}
 }
@@ -116,6 +119,7 @@ VOID RecordArg1(CHAR* name, ADDRINT arg, const CONTEXT *ctxt)
 VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2, const CONTEXT *ctxt)
 {
     //if (CheckMainCall(ctxt)) {
+        count ++;
         if (flag && !freeFlag) {
             *heapTrace << "0x0" << endl;
         }
@@ -123,7 +127,8 @@ VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2, const CONTEXT *ctxt)
             flag = true;
             freeFlag = false;
             callocCount += 1;
-            *heapTrace << insCount << "\t" << name << " [" << arg1 << "," << arg2 << "] ";
+            count ++;
+            *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg1 << "," << arg2 << "] ";
         }
     //}
 }
@@ -217,13 +222,15 @@ VOID RecordIns(VOID* address)
 VOID RecordMemRead(VOID* address, VOID* targetAddress, UINT32 size)
 {
     readCount += 1;
-    *memoryTrace << insCount << "\t" << address << " R " << targetAddress << " " << size << endl;
+    count ++;
+    *memoryTrace << insCount << "\t" << count << "\t" << address << " R " << targetAddress << " " << size << endl;
 }
 
 VOID RecordMemWrite(VOID* address, VOID* targetAddress, UINT32 size)
 {
     writeCount += 1;
-    *memoryTrace << insCount << "\t" << address << " W " << targetAddress << " " << size << endl;
+    count ++;
+    *memoryTrace << insCount << "\t" << count << "\t" << address << " W " << targetAddress << " " << size << endl;
 }
 
 VOID Trace(INS ins, VOID* v)
