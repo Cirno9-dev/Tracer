@@ -24,6 +24,7 @@ BOOL flag = false;
 BOOL freeFlag = false;
 UINT64 mallocCount = 0;
 UINT64 callocCount = 0;
+UINT64 reallocCount = 0;
 UINT64 freeCount = 0;
 
 string bin;
@@ -75,71 +76,47 @@ INT32 Usage()
     return -1;
 }
 
-BOOL CheckMainCall(const CONTEXT *ctxt)
-{
-    void *buf[2];
-    PIN_LockClient();
-    PIN_Backtrace(ctxt, buf, sizeof(buf) / sizeof(buf[0]));
-    // Focus on main program calls only
-    ADDRINT address = VoidStar2Addrint(buf[1]);
-    IMG img = IMG_FindByAddress(address);
-    PIN_UnlockClient();
-    if (IMG_Valid(img) && IMG_IsMainExecutable(img)) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
 /* ===================================================================== */
 // Analysis routines
 /* ===================================================================== */
 
-VOID RecordArg1(CHAR* name, ADDRINT arg, const CONTEXT *ctxt)
+VOID RecordArg1(CHAR* name, ADDRINT arg)
 {
-    //if (CheckMainCall(ctxt)) {
-        if (flag && !freeFlag) {
-            *heapTrace << "0x0" << endl;
-        }
-        if (!strcmp(name, FREE)) {
-            freeFlag = true;
-            freeCount += 1;
-            count ++;
-            *heapTrace << insCount << "\t" << count << "\t" << name << " [" << (VOID*)arg << "] 0x0" << endl;
-        } else if (!strcmp(name, MALLOC)) {
-            flag = true;
-            freeFlag = false;
-            mallocCount += 1;
-            count ++;
-            *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg << "] ";
-        }
-    //}
+    if (flag && !freeFlag) {
+        *heapTrace << "0x0" << endl;
+    }
+    if (!strcmp(name, FREE)) {
+        freeFlag = true;
+        freeCount += 1;
+        count ++;
+        *heapTrace << insCount << "\t" << count << "\t" << name << " [" << (VOID*)arg << "] 0x0" << endl;
+    } else if (!strcmp(name, MALLOC)) {
+        flag = true;
+        freeFlag = false;
+        mallocCount += 1;
+        count ++;
+        *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg << "] ";
+    }
 }
 
-VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2, const CONTEXT *ctxt)
+VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2)
 {
-    //if (CheckMainCall(ctxt)) {
-        count ++;
-        if (flag && !freeFlag) {
-            *heapTrace << "0x0" << endl;
-        }
-        if (!strcmp(name, CALLOC)) {
-            flag = true;
-            freeFlag = false;
-            callocCount += 1;
-            count ++;
-            *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg1 << "," << arg2 << "] ";
-        }
-    //}
+    count ++;
+    if (flag && !freeFlag) {
+        *heapTrace << "0x0" << endl;
+    }
+
+    flag = true;
+    freeFlag = false;
+    callocCount += 1;
+    count ++;
+    *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg1 << "," << arg2 << "] ";
 }
 
 VOID RecordRet(ADDRINT ret)
 {
-    // The return value is recorded only when flag is true
-    if (flag) {
-        flag = false;
-        *heapTrace << (VOID*)ret << endl;
-    }
+    flag = false;
+    *heapTrace << (VOID*)ret << endl;
 }
 
 VOID Image(IMG img, VOID* v)
@@ -163,7 +140,6 @@ VOID Image(IMG img, VOID* v)
             (AFUNPTR)RecordArg1, 
             IARG_ADDRINT, MALLOC, 
             IARG_FUNCARG_ENTRYPOINT_VALUE, 0, 
-            IARG_CONST_CONTEXT, 
             IARG_END
         );
         RTN_InsertCall(
@@ -183,9 +159,8 @@ VOID Image(IMG img, VOID* v)
             callocRtn, IPOINT_BEFORE, 
             (AFUNPTR)RecordArg2, 
             IARG_ADDRINT, CALLOC, 
-            IARG_FUNCARG_ENTRYPOINT_VALUE, 0, 
-            IARG_FUNCARG_ENTRYPOINT_VALUE, 1, 
-            IARG_CONST_CONTEXT, 
+            IARG_FUNCARG_ENTRYPOINT_VALUE,  0,
+            IARG_FUNCARG_ENTRYPOINT_VALUE,  1,
             IARG_END
         );
         RTN_InsertCall(
@@ -197,6 +172,27 @@ VOID Image(IMG img, VOID* v)
         RTN_Close(callocRtn);
     }
 
+    // realloc
+    RTN reallocRtn = RTN_FindByName(img, REALLOC);
+    if (RTN_Valid(reallocRtn)) {
+        RTN_Open(reallocRtn);
+        RTN_InsertCall(
+            reallocRtn, IPOINT_BEFORE, 
+            (AFUNPTR)RecordArg2, 
+            IARG_ADDRINT, CALLOC, 
+            IARG_FUNCARG_ENTRYPOINT_VALUE, 0, 
+            IARG_FUNCARG_ENTRYPOINT_VALUE, 1, 
+            IARG_END
+        );
+        RTN_InsertCall(
+            reallocRtn, IPOINT_AFTER, 
+            (AFUNPTR)RecordRet, 
+            IARG_FUNCRET_EXITPOINT_VALUE, 
+            IARG_END
+        );
+        RTN_Close(reallocRtn);
+    }
+
     // free()
     RTN freeRtn = RTN_FindByName(img, FREE);
     if (RTN_Valid(freeRtn)) {
@@ -206,7 +202,6 @@ VOID Image(IMG img, VOID* v)
             (AFUNPTR)RecordArg1, 
             IARG_ADDRINT, FREE, 
             IARG_FUNCARG_ENTRYPOINT_VALUE, 0, 
-            IARG_CONST_CONTEXT, 
             IARG_END
         );
         RTN_Close(freeRtn);
@@ -290,6 +285,7 @@ VOID Fini(INT32 code, VOID* v)
     cerr << "Number of write memory instructions: " << writeCount << endl;
     cerr << "Number of malloc: " << mallocCount << endl;
     cerr << "Number of calloc: " << callocCount << endl;
+    cerr << "Number of realloc: " << reallocCount << endl;
     cerr << "Number of free: " << freeCount << endl;
     cerr << "===============================================" << endl;
 
@@ -298,6 +294,7 @@ VOID Fini(INT32 code, VOID* v)
     *info << "writeCount: " << writeCount << endl;
     *info << "mallocCount: " << mallocCount << endl;
     *info << "callocCount: " << callocCount << endl;
+    *info << "reallocCount: " << reallocCount << endl;
     *info << "freeCount: " << freeCount << endl;
 }
 
