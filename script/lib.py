@@ -47,7 +47,7 @@ class Trace(list):
             while line:
                 line = line.strip()
                 
-                id = line.split("\t")[0]
+                id = int(line.split("\t")[0])
                 address = int(line.split("\t")[1].split(": ")[0], 16)
                 ins = line.split("\t")[1].split(": ")[1]
                 self.append(Instruction(id, address, ins))
@@ -96,10 +96,11 @@ class MemoryTrace(list):
             while line:
                 line = line.strip()
                 
-                id = line.split("\t")[0]
+                id = int(line.split("\t")[0])
                 line = line.split("\t")[1].split(" ")
                 line[0] = int(line[0], 16)
                 line[2] = int(line[2], 16)
+                line[3] = int(line[3])
                 self.append(MemoryOp(id, *line))
                 
                 line = f.readline()
@@ -135,7 +136,7 @@ class HeapOp(dict):
         
         return f"{id}\t{hex(retAddress)} = {func}({argsStr})"
     
-class HeapTracer(list):
+class HeapTrace(list):
     def __init__(self, filename: str) -> None:
         super().__init__([])
         self._parseFromFile(filename)
@@ -148,7 +149,7 @@ class HeapTracer(list):
                     break
                 line = line.strip()
                 
-                id = line.split("\t")[0]
+                id = int(line.split("\t")[0])
                 line = line.split("\t")[1].split(" ")
                 line[1] = eval(line[1])
                 line[2] = int(line[2], 16)
