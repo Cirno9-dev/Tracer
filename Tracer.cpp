@@ -82,17 +82,16 @@ INT32 Usage()
 
 VOID RecordArg1(CHAR* name, ADDRINT arg)
 {
-    if (flag && !freeFlag) {
+    if (flag) {
         *heapTrace << "0x0" << endl;
     }
     if (!strcmp(name, FREE)) {
-        freeFlag = true;
+        flag = false;
         freeCount += 1;
         count ++;
         *heapTrace << insCount << "\t" << count << "\t" << name << " [" << (VOID*)arg << "] 0x0" << endl;
     } else if (!strcmp(name, MALLOC)) {
         flag = true;
-        freeFlag = false;
         mallocCount += 1;
         count ++;
         *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg << "] ";
@@ -101,13 +100,11 @@ VOID RecordArg1(CHAR* name, ADDRINT arg)
 
 VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2)
 {
-    count ++;
-    if (flag && !freeFlag) {
+    if (flag) {
         *heapTrace << "0x0" << endl;
     }
 
     flag = true;
-    freeFlag = false;
     callocCount += 1;
     count ++;
     *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg1 << "," << arg2 << "] ";
