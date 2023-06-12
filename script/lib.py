@@ -167,7 +167,7 @@ class HeapTrace(list):
                 # if free(0) or 0x0 = malloc() pass
                 if line[0] == "free" and line[1] == [0]:
                     continue
-                if len(self) > 1 and opId - self[-1]["opId"] <= 1 and self[-1]["retAddress"] == 0:
+                if len(self) > 0 and opId - self[-1]["opId"] <= 1 and self[-1]["retAddress"] == 0:
                     self[-1] = HeapOp(id, opId, *line)
                 else:
                     self.append(HeapOp(id, opId, *line))

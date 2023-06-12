@@ -22,8 +22,8 @@ def processHeapTrace(heapTrace: HeapTrace) -> dict:
         traceId = heapOp["id"]
         address = heapOp["retAddress"]
         size = calculateSize(size)
-        heapInfo[address] = heapInfo.get(address, [])
-        heapInfo[address].append([traceId, size])
+        heapInfo[address - 0x10] = heapInfo.get(address, [])
+        heapInfo[address - 0x10].append([traceId, size])
         
     heapInfo = sorted(heapInfo.items(), key=lambda v: v[0])
     heapInfo = dict(heapInfo)
@@ -35,16 +35,32 @@ def processMemoryTrace(memoryTrace: MemoryTrace, heapTrace: HeapTrace):
     max_address = max_base_address + max(heapInfo[max_base_address], key=lambda v: v[1])[1]
     min_address = list(heapInfo.keys())[0]
     
-    memoryInfo = [memoryTrace[0]]
+    writeInfo = []
+    readInfo = []
     for memoryOp in memoryTrace[1:]:
         targetAddress = memoryOp["targetAddress"]
         if targetAddress > max_address or targetAddress < min_address:
             continue
         
-        if memoryOp["op"] == memoryInfo[-1]["op"] and targetAddress == (memoryInfo[-1]["targetAddress"] + memoryInfo[-1]["size"]):
-            memoryInfo[-1]["size"] += memoryOp["size"]
-        else:
-            memoryInfo.append(memoryOp)
+        if memoryOp["op"] == "W":
+            if len(writeInfo) == 0:
+                writeInfo.append(memoryOp)
+                continue
+            if targetAddress == (writeInfo[-1]["targetAddress"] + writeInfo[-1]["size"]):
+                writeInfo[-1]["size"] += memoryOp["size"]
+            else:
+                writeInfo.append(memoryOp)
+        if memoryOp["op"] == "R":
+            if len(readInfo) == 0:
+                readInfo.append(memoryOp)
+                continue
+            if targetAddress == (readInfo[-1]["targetAddress"] + readInfo[-1]["size"]):
+                readInfo[-1]["size"] += memoryOp["size"]
+            else:
+                readInfo.append(memoryOp)
+    
+    memoryInfo = writeInfo + readInfo
+    memoryInfo.sort(key=lambda v: v["opId"])
     return memoryInfo
 
 def backtrace(info: Info, trace: Trace, op: MemoryOp | HeapOp):
@@ -105,7 +121,7 @@ def checkVulnerability(info: Info, trace: Trace, allTrace: dict):
                     size = op["args"][0]
                 elif op["func"] == "calloc":
                     size = op["args"][0] * op["args"][1]
-                
+                    
                 address = op["retAddress"]
                 size = calculateSize(size)
                 heapInfo[address - 0x10] = size
@@ -134,7 +150,7 @@ def checkVulnerability(info: Info, trace: Trace, allTrace: dict):
                         print(hex(baseAddress), targetSize)
                         print(op)
                         print("[+] backtrace:")
-                        backtrace(info, trace, op)
+                        # backtrace(info, trace, op)
                         print()
                     break
 
