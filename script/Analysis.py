@@ -49,18 +49,20 @@ def processMemoryTrace(memoryTrace: MemoryTrace, heapTrace: HeapTrace):
 def checkVulnerability(trace: dict):    
     memoryInfo = {}
     heapInfo = {}
+    lastId = 0
     
     for op in trace:
         if type(op) == HeapOp:
+            lastId = op["id"]
             if op["func"] == "free":
                 address = op["args"][0]
-                if address not in heapInfo:
+                if (address - 0x10) not in heapInfo:
                     print(f"[-] {hex(address)} not malloc!")
                     exit(0)
-                size = heapInfo[address]
+                size = heapInfo[address - 0x10]
                 for i in range(size // 16):
                     if memoryInfo[address - 0x10 + 0x10 * i] == [0] * 16:
-                        print(f"[!] {hex(address)} double free!")
+                        print(f"[!] {hex(address)} Double Free!")
                         print(op)
                         print()
                         break
@@ -73,23 +75,31 @@ def checkVulnerability(trace: dict):
                 
                 address = op["retAddress"]
                 size = calculateSize(size)
-                heapInfo[address] = size
+                heapInfo[address - 0x10] = size
                 for i in range(size // 16):
                     memoryInfo[address - 0x10 + 0x10 * i] = [1] * 16
         elif type(op) == MemoryOp:
+            if op["id"] == lastId:
+                continue
+            
             address = op["targetAddress"]
             size = op["size"]
             if (address - address % 16) not in memoryInfo:
+                continue
+            
+            if memoryInfo[address - address % 16] == [0] * 16:
+                print(f"[!] {hex(address)} Use After Free!")
+                print(op)
+                print()
                 continue
             
             for baseAddress in heapInfo:
                 targetSize = heapInfo[baseAddress]
                 if baseAddress <= address < baseAddress + targetSize:
                     if (baseAddress + targetSize - address) < size:
-                        print(f"[!] {hex(address)} out of bound")
+                        print(f"[!] {hex(address)} Out Of Bound! size: {size - (baseAddress + targetSize - address)}")
                         print(op)
                         print()
-                        pass
                     break
 
 def main() -> None:
