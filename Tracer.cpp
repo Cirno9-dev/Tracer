@@ -21,11 +21,13 @@ UINT64 readCount = 0;
 UINT64 writeCount = 0;
 
 BOOL flag = false;
-BOOL freeFlag = false;
 UINT64 mallocCount = 0;
 UINT64 callocCount = 0;
-UINT64 reallocCount = 0;
 UINT64 freeCount = 0;
+
+UINT64 targetSize = 0;
+UINT64 minAddress = 0;
+UINT64 maxAddress = 0;
 
 string bin;
 VOID* loadedAddress;
@@ -94,6 +96,7 @@ VOID RecordArg1(CHAR* name, ADDRINT arg)
         flag = true;
         mallocCount++;
         count ++;
+        targetSize = arg;
         *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg << "] ";
     }
 }
@@ -107,6 +110,7 @@ VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2)
     flag = true;
     count ++;
     callocCount++;
+    targetSize = arg1 * arg2;
     *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg1 << "," << arg2 << "] ";
 }
 
@@ -114,6 +118,22 @@ VOID RecordRet(ADDRINT ret)
 {
     flag = false;
     *heapTrace << (VOID*)ret << endl;
+
+    if (minAddress != 0) {
+        if (ret < minAddress) {
+            minAddress = ret;
+        }
+    } else {
+        minAddress = ret;
+    }
+
+    if (maxAddress != 0) {
+        if (ret + targetSize > maxAddress) {
+            maxAddress = ret + targetSize;
+        }
+    } else {
+        maxAddress = ret + targetSize;
+    }
 }
 
 VOID Image(IMG img, VOID* v)
@@ -192,16 +212,20 @@ VOID RecordIns(VOID* address)
 
 VOID RecordMemRead(VOID* address, VOID* targetAddress, UINT32 size)
 {
-    readCount += 1;
-    count ++;
-    *memoryTrace << insCount << "\t" << count << "\t" << address << " R " << targetAddress << " " << size << endl;
+    if ((UINT64)targetAddress >= minAddress && (UINT64)targetAddress <= maxAddress) {
+        readCount += 1;
+        count ++;
+        *memoryTrace << insCount << "\t" << count << "\t" << address << " R " << targetAddress << " " << size << endl;
+    }
 }
 
 VOID RecordMemWrite(VOID* address, VOID* targetAddress, UINT32 size)
 {
-    writeCount += 1;
-    count ++;
-    *memoryTrace << insCount << "\t" << count << "\t" << address << " W " << targetAddress << " " << size << endl;
+    if ((UINT64)targetAddress >= minAddress && (UINT64)targetAddress <= maxAddress) {
+        writeCount += 1;
+        count ++;
+        *memoryTrace << insCount << "\t" << count << "\t" << address << " W " << targetAddress << " " << size << endl;
+    }
 }
 
 VOID Trace(INS ins, VOID* v)

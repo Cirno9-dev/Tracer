@@ -165,12 +165,9 @@ class HeapTrace(list):
                 line[1] = eval(line[1])
                 line[2] = int(line[2], 16)
                 # if free(0) or 0x0 = malloc() pass
-                if line[0] == "free":
-                    if line[1] == [0]:
-                        continue
-                elif line[2] == 0:
+                if line[0] == "free" and line[1] == [0]:
                     continue
-                if len(self) > 1 and opId - self[-1]["opId"] <= 10:
+                if len(self) > 1 and opId - self[-1]["opId"] <= 1 and self[-1]["retAddress"] == 0:
                     self[-1] = HeapOp(id, opId, *line)
                 else:
                     self.append(HeapOp(id, opId, *line))

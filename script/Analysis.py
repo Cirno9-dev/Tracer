@@ -58,6 +58,7 @@ def checkVulnerability(trace: dict):
                 address = op["args"][0]
                 if (address - 0x10) not in heapInfo:
                     print(f"[-] {hex(address)} not malloc!")
+                    print(op)
                     exit(0)
                 size = heapInfo[address - 0x10]
                 for i in range(size // 16):
