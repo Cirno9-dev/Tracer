@@ -1,6 +1,6 @@
 # Tracer
 
-The tracer implemented using intel pin.
+The tracer implemented using intel pin. Tracer keeps track of heap block requests, releases, reads and writes, and program execution traces.
 
 ---
 
@@ -70,17 +70,37 @@ freeCount: 0
 output/trace.log
 
 ```
- <ID> <Address>: <instruction>
+ <ID>   <Address>: <instruction>
 ```
 
 output/memoryTrace.log
 
 ```
-<ID> <Address> R/W <TargetAddress> <Size>
+<ID>    <OP ID> <Address> R/W <TargetAddress> <Size>
 ```
 
 output/heapTrace.log
 
 ```
-<ID> <FunName>(<ARG>) -> <RETURN>
+<ID>    <OP ID> <FunName>[<ARG>] <RETURN>
+```
+
+## Analysis
+
+Analyze the program for possible vulnerabilities based on the output of Tracer.
+
+```bash
+python3 ./script/Analysis.py -d ./output
+```
+
+**output**
+
+```bash
+[!] 0x564ff48716dc Out Of Bound!
+0x564ff4871290 1104
+156	41	0x7f1d3f59f16b W 0x564ff48716dc 8
+
+[!] 0x564ff4871798 Out Of Bound!
+0x564ff4871700 176
+579	126	0x7f1d3f5a0a59 W 0x564ff4871798 32
 ```
