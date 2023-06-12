@@ -62,7 +62,6 @@ VOID init()
 #else
 #define MALLOC "malloc"
 #define CALLOC "calloc"
-#define REALLOC "realloc"
 #define FREE "free"
 #endif
 
@@ -85,14 +84,15 @@ VOID RecordArg1(CHAR* name, ADDRINT arg)
     if (flag) {
         *heapTrace << "0x0" << endl;
     }
+
     if (!strcmp(name, FREE)) {
         flag = false;
-        freeCount += 1;
-        count ++;
+        freeCount++;
+        count++;
         *heapTrace << insCount << "\t" << count << "\t" << name << " [" << (VOID*)arg << "] 0x0" << endl;
     } else if (!strcmp(name, MALLOC)) {
         flag = true;
-        mallocCount += 1;
+        mallocCount++;
         count ++;
         *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg << "] ";
     }
@@ -105,8 +105,8 @@ VOID RecordArg2(CHAR* name, ADDRINT arg1, ADDRINT arg2)
     }
 
     flag = true;
-    callocCount += 1;
     count ++;
+    callocCount++;
     *heapTrace << insCount << "\t" << count << "\t" << name << " [" << arg1 << "," << arg2 << "] ";
 }
 
@@ -167,27 +167,6 @@ VOID Image(IMG img, VOID* v)
             IARG_END
         );
         RTN_Close(callocRtn);
-    }
-
-    // realloc
-    RTN reallocRtn = RTN_FindByName(img, REALLOC);
-    if (RTN_Valid(reallocRtn)) {
-        RTN_Open(reallocRtn);
-        RTN_InsertCall(
-            reallocRtn, IPOINT_BEFORE, 
-            (AFUNPTR)RecordArg2, 
-            IARG_ADDRINT, CALLOC, 
-            IARG_FUNCARG_ENTRYPOINT_VALUE, 0, 
-            IARG_FUNCARG_ENTRYPOINT_VALUE, 1, 
-            IARG_END
-        );
-        RTN_InsertCall(
-            reallocRtn, IPOINT_AFTER, 
-            (AFUNPTR)RecordRet, 
-            IARG_FUNCRET_EXITPOINT_VALUE, 
-            IARG_END
-        );
-        RTN_Close(reallocRtn);
     }
 
     // free()
@@ -282,7 +261,6 @@ VOID Fini(INT32 code, VOID* v)
     cerr << "Number of write memory instructions: " << writeCount << endl;
     cerr << "Number of malloc: " << mallocCount << endl;
     cerr << "Number of calloc: " << callocCount << endl;
-    cerr << "Number of realloc: " << reallocCount << endl;
     cerr << "Number of free: " << freeCount << endl;
     cerr << "===============================================" << endl;
 
@@ -291,7 +269,6 @@ VOID Fini(INT32 code, VOID* v)
     *info << "writeCount: " << writeCount << endl;
     *info << "mallocCount: " << mallocCount << endl;
     *info << "callocCount: " << callocCount << endl;
-    *info << "reallocCount: " << reallocCount << endl;
     *info << "freeCount: " << freeCount << endl;
 }
 

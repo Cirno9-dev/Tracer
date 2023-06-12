@@ -170,7 +170,10 @@ class HeapTrace(list):
                         continue
                 elif line[2] == 0:
                     continue
-                self.append(HeapOp(id, opId, *line))
+                if len(self) > 1 and opId - self[-1]["opId"] <= 10:
+                    self[-1] = HeapOp(id, opId, *line)
+                else:
+                    self.append(HeapOp(id, opId, *line))
                 
     def __str__(self) -> str:
         return self.__repr__()
