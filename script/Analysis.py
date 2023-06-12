@@ -97,7 +97,8 @@ def checkVulnerability(trace: dict):
                 targetSize = heapInfo[baseAddress]
                 if baseAddress <= address < baseAddress + targetSize:
                     if (baseAddress + targetSize - address) < size:
-                        print(f"[!] {hex(address)} Out Of Bound! size: {size - (baseAddress + targetSize - address)}")
+                        print(f"[!] {hex(address)} Out Of Bound!")
+                        print(hex(baseAddress), targetSize)
                         print(op)
                         print()
                     break
