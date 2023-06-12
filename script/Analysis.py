@@ -1,6 +1,7 @@
 from lib import *
 import argparse
 from pathlib import Path
+import os
 
 def calculateSize(size):
     size = size - 8
@@ -46,12 +47,43 @@ def processMemoryTrace(memoryTrace: MemoryTrace, heapTrace: HeapTrace):
             memoryInfo.append(memoryOp)
     return memoryInfo
 
-def checkVulnerability(trace: dict):    
+def backtrace(info: Info, trace: Trace, op: MemoryOp | HeapOp):
+    id = op["id"]
+    baseAddress = info.codeAddress
+    bin = info.fileName
+    
+    offset = trace[id-1]["address"] - baseAddress
+    output = os.popen(f"addr2line -a {hex(offset)} -e {bin} -f -C -i -p").readlines()
+    callFunction = output[-1].strip().split(" ")[1]
+    print("".join(output), end="")
+    
+    callTree = [callFunction]
+    ret = False
+    for i in range(id-2, 0, -1):
+        ins = trace[i]["ins"]
+        if ins.startswith("ret"):
+            ret = True
+            continue
+        
+        if ins.startswith("call"):
+            if ret:
+                ret = False
+                continue
+        
+            offset = trace[i]["address"] - baseAddress
+            output = os.popen(f"addr2line -a {hex(offset)} -e {bin} -f -C -i -p").readlines()
+            callFunction = output[-1].strip().split(" ")[1]
+            
+            if callFunction != callTree[-1]:
+                callTree.append(callFunction)
+                print("".join(output), end="")
+
+def checkVulnerability(info: Info, trace: Trace, allTrace: dict):    
     memoryInfo = {}
     heapInfo = {}
     lastId = 0
     
-    for op in trace:
+    for op in allTrace:
         if type(op) == HeapOp:
             lastId = op["id"]
             if op["func"] == "free":
@@ -101,6 +133,8 @@ def checkVulnerability(trace: dict):
                         print(f"[!] {hex(address)} Out Of Bound!")
                         print(hex(baseAddress), targetSize)
                         print(op)
+                        print("[+] backtrace:")
+                        backtrace(info, trace, op)
                         print()
                     break
 
@@ -120,6 +154,8 @@ def main() -> None:
     memoryFile = outputDir.joinpath("memoryTrace.log")
     heapFile = outputDir.joinpath("heapTrace.log")
     
+    info = Info(infoFile)
+    trace = Trace(traceFile)
     memoryTrace = MemoryTrace(memoryFile)
     heapTrace = HeapTrace(heapFile)
 
@@ -127,7 +163,7 @@ def main() -> None:
     allTrace = heapTrace + minMemoryTrace
     allTrace.sort(key=lambda v: v["opId"])
     
-    checkVulnerability(allTrace)
+    checkVulnerability(info, trace, allTrace)
     
     # test(infoFile, traceFile, memoryFile, heapFile)
         
