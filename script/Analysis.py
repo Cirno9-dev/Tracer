@@ -96,6 +96,8 @@ def checkVulnerability(info: Info, trace: Trace, backtrace: Backtrace, allTrace:
                     if memoryInfo[address - 0x10 + 0x10 * i] == [0] * 16:
                         print(f"[!] {hex(address)} Double Free!")
                         print(op)
+                        print("[+] backtrace:")
+                        getBacktraceStr(info, trace, backtrace, op)
                         print()
                         break
                     memoryInfo[address - 0x10 + 0x10 * i] = [0] * 16
@@ -122,6 +124,8 @@ def checkVulnerability(info: Info, trace: Trace, backtrace: Backtrace, allTrace:
             if memoryInfo[address - address % 16] == [0] * 16:
                 print(f"[!] {hex(address)} Use After Free!")
                 print(op)
+                print("[+] backtrace:")
+                getBacktraceStr(info, trace, backtrace, op)
                 print()
                 continue
             
