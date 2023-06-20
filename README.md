@@ -107,7 +107,7 @@ https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-18557
 
 **Tracer**
 
-```
+```shell
 pin -t ../Tracer/obj-intel64/Tracer.so -- ./poc ./image.tif
 ```
 
@@ -142,6 +142,10 @@ Number of free: 25
 ```
 
 **Analysis**
+
+```shell
+python3 ../Tracer/script/Analysis.py -d ./output
+```
 
 ```
 [!] 0x5599f45bbe80 Out Of Bound!
