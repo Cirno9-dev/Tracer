@@ -63,38 +63,21 @@ def processMemoryTrace(memoryTrace: MemoryTrace, heapTrace: HeapTrace):
     memoryInfo.sort(key=lambda v: v["opId"])
     return memoryInfo
 
-def backtrace(info: Info, trace: Trace, op: MemoryOp | HeapOp):
-    id = op["id"]
+def getBacktraceStr(info: Info, trace: Trace, backtrace: Backtrace, op: MemoryOp | HeapOp):
     baseAddress = info.codeAddress
     bin = info.fileName
     
-    offset = trace[id-1]["address"] - baseAddress
-    output = os.popen(f"addr2line -a {hex(offset)} -e {bin} -f -C -i -p").readlines()
-    callFunction = output[-1].strip().split(" ")[1]
-    print("".join(output), end="")
+    id = op["id"] - 1
+    if trace[id]["ins"].startswith("jmp qword ptr [rip+"):
+        id = id - 1
     
-    callTree = [callFunction]
-    ret = False
-    for i in range(id-2, 0, -1):
-        ins = trace[i]["ins"]
-        if ins.startswith("ret"):
-            ret = True
-            continue
-        
-        if ins.startswith("call"):
-            if ret:
-                ret = False
-                continue
-        
-            offset = trace[i]["address"] - baseAddress
-            output = os.popen(f"addr2line -a {hex(offset)} -e {bin} -f -C -i -p").readlines()
-            callFunction = output[-1].strip().split(" ")[1]
-            
-            if callFunction != callTree[-1]:
-                callTree.append(callFunction)
-                print("".join(output), end="")
+    btAddress = backtrace[id]
+    for address in btAddress:
+        offset = address - baseAddress
+        output = os.popen(f"addr2line -a {hex(offset)} -e {bin} -f -C -i -p").readlines()
+        print("".join(output), end="")
 
-def checkVulnerability(info: Info, trace: Trace, allTrace: dict):    
+def checkVulnerability(info: Info, trace: Trace, backtrace: Backtrace, allTrace: dict):    
     memoryInfo = {}
     heapInfo = {}
     lastId = 0
@@ -148,9 +131,10 @@ def checkVulnerability(info: Info, trace: Trace, allTrace: dict):
                     if (baseAddress + targetSize - address) < size:
                         print(f"[!] {hex(address)} Out Of Bound!")
                         print(hex(baseAddress), targetSize)
+                        print(f"offset: {address - baseAddress}")
                         print(op)
                         print("[+] backtrace:")
-                        # backtrace(info, trace, op)
+                        getBacktraceStr(info, trace, backtrace, op)
                         print()
                     break
 
@@ -169,21 +153,23 @@ def main() -> None:
     traceFile = outputDir.joinpath("trace.log")
     memoryFile = outputDir.joinpath("memoryTrace.log")
     heapFile = outputDir.joinpath("heapTrace.log")
+    backtraceFile = outputDir.joinpath("backtrace.log")
     
     info = Info(infoFile)
     trace = Trace(traceFile)
     memoryTrace = MemoryTrace(memoryFile)
     heapTrace = HeapTrace(heapFile)
+    backtrace = Backtrace(backtraceFile)
 
     minMemoryTrace = processMemoryTrace(memoryTrace, heapTrace)
     allTrace = heapTrace + minMemoryTrace
     allTrace.sort(key=lambda v: v["opId"])
     
-    checkVulnerability(info, trace, allTrace)
+    checkVulnerability(info, trace, backtrace, allTrace)
     
-    # test(infoFile, traceFile, memoryFile, heapFile)
+    # test(infoFile, traceFile, memoryFile, heapFile, backtraceFile)
         
-def test(infoFile, traceFile, memoryFile, heapFile):
+def test(infoFile, traceFile, memoryFile, heapFile, backtraceFile):
     print("\nInfo:")
     info = Info(infoFile)
     print(info)
@@ -202,6 +188,10 @@ def test(infoFile, traceFile, memoryFile, heapFile):
     heapTrace = HeapTrace(heapFile)
     for heapOp in heapTrace[:10]:
         print(heapOp)
+        
+    print("\nBacktrace:")
+    backtrace = Backtrace()
+    print(backtrace)
         
 def testCalculateSize():
     assert calculateSize(0x10) == 0x20

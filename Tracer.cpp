@@ -39,6 +39,8 @@ string infoFile = "./output/info.log";
 std::ostream* info = nullptr;
 string traceFile = "./output/trace.log";
 std::ostream* trace = nullptr;
+string backtraceFile = "./output/backtrace.log";
+std::ostream* backtrace = nullptr;
 string memoryTraceFile = "./output/memoryTrace.log";
 std::ostream* memoryTrace = nullptr;
 string heapTraceFile = "./output/heapTrace.log";
@@ -51,6 +53,7 @@ VOID init()
     }
     info = new std::ofstream(infoFile.c_str(), std::ios_base::out);
     trace = new std::ofstream(traceFile.c_str(), std::ios_base::out);
+    backtrace = new std::ofstream(backtraceFile.c_str(), std::ios_base::out);
     memoryTrace = new std::ofstream(memoryTraceFile.c_str(), std::ios_base::out);
     heapTrace = new std::ofstream(heapTraceFile.c_str(), std::ios_base::out);
 }
@@ -204,9 +207,26 @@ VOID Image(IMG img, VOID* v)
     }
 }
 
-VOID RecordIns(VOID* address)
+VOID RecordIns(VOID* address, const CONTEXT* ctxt)
 {
     insCount += 1;
+    if (disassembleCode[address].rfind("jmp qword ptr [rip+", 0) != 0) {
+        void *buf[128];
+        PIN_LockClient();
+        PIN_Backtrace(ctxt, buf, sizeof(buf) / sizeof(buf[0]));
+        *backtrace << insCount << "\t" << "[";
+        for (int i=0; i<128; i++) {
+            if (buf[i] == 0) {
+                break;
+            }
+            if (i != 0) {
+                *backtrace << ",";
+            }
+            *backtrace << (VOID*) VoidStar2Addrint(buf[i]);
+        }
+        *backtrace << "]" << endl;
+        PIN_UnlockClient();
+    }
     *trace << insCount << "\t" << address << ": " << disassembleCode[address] << endl;
 }
 
@@ -269,7 +289,7 @@ VOID Trace(INS ins, VOID* v)
     string insDisassemble = INS_Disassemble(ins);
     disassembleCode[address] = insDisassemble;
 
-    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RecordIns, IARG_INST_PTR,  IARG_END);
+    INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)RecordIns, IARG_INST_PTR, IARG_CONST_CONTEXT, IARG_END);
 }
 
 VOID Fini(INT32 code, VOID* v)
@@ -320,6 +340,7 @@ int main(int argc, char* argv[])
     cerr << "This application is instrumented by Tracer" << endl;
     cerr << "Info File: " << infoFile << endl;
     cerr << "Trace File: " << traceFile << endl;
+    cerr << "Backtrace File: " << backtraceFile << endl;
     cerr << "Memory Trace File: " << memoryTraceFile << endl;
     cerr << "Heap Trace File: " << heapTraceFile << endl;
     cerr << "===============================================" << endl;
