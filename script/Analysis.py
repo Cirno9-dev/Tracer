@@ -19,11 +19,14 @@ def processHeapTrace(heapTrace: HeapTrace) -> dict:
         elif heapOp["func"] == "calloc":
             size = heapOp["args"][0] * heapOp["args"][1]
         
+        newSize = calculateSize(size)
+        if (size % 0x10) != 0 and (size % 0x10) <= 8:
+            newSize += 8
+            
         traceId = heapOp["id"]
         address = heapOp["retAddress"]
-        size = calculateSize(size)
         heapInfo[address - 0x10] = heapInfo.get(address, [])
-        heapInfo[address - 0x10].append([traceId, size])
+        heapInfo[address - 0x10].append([traceId, newSize])
         
     heapInfo = sorted(heapInfo.items(), key=lambda v: v[0])
     heapInfo = dict(heapInfo)
@@ -106,12 +109,19 @@ def checkVulnerability(info: Info, trace: Trace, backtrace: Backtrace, allTrace:
                     size = op["args"][0]
                 elif op["func"] == "calloc":
                     size = op["args"][0] * op["args"][1]
-                    
+
+                newSize = calculateSize(size)
+                if (size % 0x10) != 0 and (size % 0x10) <= 8:
+                    newSize += 8
+                
                 address = op["retAddress"]
-                size = calculateSize(size)
-                heapInfo[address - 0x10] = size
-                for i in range(size // 16):
+                heapInfo[address - 0x10] = newSize
+                for i in range(newSize // 16):
                     memoryInfo[address - 0x10 + 0x10 * i] = [1] * 16
+                if newSize % 16 != 0:
+                    memory = memoryInfo.get(address - 0x10 + 0x10 * (newSize // 16), [0]*16)
+                    memory[:8] = [1] * 8
+                    memoryInfo[address - 0x10 + 0x10 * (newSize // 16)] = memory
         elif type(op) == MemoryOp:
             if op["id"] == lastId:
                 continue
