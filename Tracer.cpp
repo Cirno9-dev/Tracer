@@ -80,6 +80,18 @@ INT32 Usage()
     return -1;
 }
 
+BOOL CheckDisassembleCode(string disassemble)
+{
+    string passCode[] = {"jmp qword ptr [rip+", "ret"};
+    int length = sizeof(passCode)/sizeof(passCode[0]);
+    for (int i=0; i < length; i++) {
+        if (disassemble.rfind(passCode[i], 0) == 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /* ===================================================================== */
 // Analysis routines
 /* ===================================================================== */
@@ -210,7 +222,8 @@ VOID Image(IMG img, VOID* v)
 VOID RecordIns(VOID* address, const CONTEXT* ctxt)
 {
     insCount += 1;
-    if (disassembleCode[address].rfind("jmp qword ptr [rip+", 0) != 0) {
+    *trace << insCount << "\t" << address << ": " << disassembleCode[address] << endl;
+    if (CheckDisassembleCode(disassembleCode[address])) {
         void *buf[128];
         PIN_LockClient();
         PIN_Backtrace(ctxt, buf, sizeof(buf) / sizeof(buf[0]));
@@ -227,7 +240,6 @@ VOID RecordIns(VOID* address, const CONTEXT* ctxt)
         *backtrace << "]" << endl;
         PIN_UnlockClient();
     }
-    *trace << insCount << "\t" << address << ": " << disassembleCode[address] << endl;
 }
 
 VOID RecordMemRead(VOID* address, VOID* targetAddress, UINT32 size)
